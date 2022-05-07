@@ -1,29 +1,31 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { MdShoppingBasket } from 'react-icons/md';
-
+import { Link } from 'react-router-dom';
 import logo from '../../assets/images/logo.svg';
-import { Container, Cart } from './styles';
 import { useCart } from '../../hooks/useCart';
+import { Cart, Container } from './styles';
 
 const Header = (): JSX.Element => {
-  // const { cart } = useCart();
-  // const cartSize = // TODO;
+  const { cart } = useCart();
+
+  const cartSize = cart.reduce((acc, item) => {
+    return acc + 1;
+  }, 0);
 
   return (
     <Container>
-      <Link to="/">
-        <img src={logo} alt="Rocketshoes" />
+      <Link to='/'>
+        <img src={logo} alt='Rocketshoes' />
       </Link>
 
-      <Cart to="/cart">
+      <Cart to='/cart'>
         <div>
           <strong>Meu carrinho</strong>
-          <span data-testid="cart-size">
-            {/* {cartSize === 1 ? `${cartSize} item` : `${cartSize} itens`} */}
+          <span data-testid='cart-size'>
+            {cartSize === 1 ? `${cartSize} item` : `${cartSize} itens`}
           </span>
         </div>
-        <MdShoppingBasket size={36} color="#FFF" />
+        <MdShoppingBasket size={36} color='#FFF' />
       </Cart>
     </Container>
   );
