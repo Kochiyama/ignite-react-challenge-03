@@ -1,4 +1,10 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -23,28 +29,62 @@ const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+    const storedCart = localStorage.getItem('@RocketShoes:cart');
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+    if (storedCart) {
+      return JSON.parse(storedCart);
+    }
 
     return [];
   });
 
   const addProduct = async (productId: number) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      let productAlreadyOnCart = false;
+
+      let updatedCart = cart.map(product => {
+        if (product.id !== productId) return product;
+
+        productAlreadyOnCart = true;
+
+        const updatedProduct = {
+          ...product,
+          amount: product.amount + 1,
+        };
+
+        return updatedProduct;
+      });
+
+      if (!productAlreadyOnCart) {
+        const response = await api.get(`/products/${productId}`);
+        const newProduct = { ...response.data, amount: 1 };
+        updatedCart.push(newProduct);
+      }
+
+      setCart(updatedCart);
+    } catch (err: any) {
+      console.log(err);
     }
   };
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      const updatedCart = cart
+        .map(product => {
+          if (product.id !== productId) return product;
+
+          const updatedProduct = {
+            ...product,
+            amount: product.amount - 1,
+          };
+
+          return updatedProduct;
+        })
+        .filter(product => product.amount > 0);
+
+      setCart(updatedCart);
+    } catch (err: any) {
+      console.log(err);
     }
   };
 
@@ -53,9 +93,11 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      await api.put(`/stock/${productId}`, {
+        amount,
+      });
+    } catch (err: any) {
+      console.log(err);
     }
   };
 
