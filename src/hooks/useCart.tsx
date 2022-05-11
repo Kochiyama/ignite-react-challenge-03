@@ -1,13 +1,9 @@
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import { createContext, ReactNode, useContext, useState } from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
-import { Product, Stock } from '../types';
+import { Product } from '../types';
+
+const CART_TOKEN = '@RocketShoes:cart';
 
 interface CartProviderProps {
   children: ReactNode;
@@ -29,7 +25,7 @@ const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    const storedCart = localStorage.getItem('@RocketShoes:cart');
+    const storedCart = localStorage.getItem(CART_TOKEN);
 
     if (storedCart) {
       return JSON.parse(storedCart);
@@ -40,51 +36,53 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const addProduct = async (productId: number) => {
     try {
+      let totalAmount = 1;
       let productAlreadyOnCart = false;
 
       let updatedCart = cart.map(product => {
         if (product.id !== productId) return product;
 
         productAlreadyOnCart = true;
+        totalAmount = product.amount + 1;
 
-        const updatedProduct = {
+        return {
           ...product,
-          amount: product.amount + 1,
+          amount: totalAmount,
         };
-
-        return updatedProduct;
       });
 
       if (!productAlreadyOnCart) {
         const response = await api.get(`/products/${productId}`);
-        const newProduct = { ...response.data, amount: 1 };
+        const newProduct = { ...response.data, amount: totalAmount };
         updatedCart.push(newProduct);
       }
 
+      const isAvailable = await checkStockAvailability(productId, totalAmount);
+      if (!isAvailable) return;
+
       setCart(updatedCart);
-    } catch (err: any) {
-      console.log(err);
+      localStorage.setItem(CART_TOKEN, JSON.stringify(updatedCart));
+    } catch {
+      toast.error('Erro na adição do produto');
     }
   };
 
-  const removeProduct = (productId: number) => {
+  const removeProduct = async (productId: number) => {
     try {
-      const updatedCart = cart
-        .map(product => {
-          if (product.id !== productId) return product;
+      let existent_product = false;
 
-          const updatedProduct = {
-            ...product,
-            amount: product.amount - 1,
-          };
+      const updatedCart = cart.filter(_product => {
+        if (_product.id !== productId) return true;
+        existent_product = true;
+        return false;
+      });
 
-          return updatedProduct;
-        })
-        .filter(product => product.amount > 0);
+      if (!existent_product) throw Error();
 
       setCart(updatedCart);
-    } catch (err: any) {
-      console.log(err);
+      localStorage.setItem(CART_TOKEN, JSON.stringify(updatedCart));
+    } catch {
+      toast.error('Erro na remoção do produto');
     }
   };
 
@@ -93,12 +91,35 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      await api.put(`/stock/${productId}`, {
-        amount,
+      if (amount <= 0) return;
+
+      const isAvailable = await checkStockAvailability(productId, amount);
+      if (!isAvailable) return;
+
+      const updatedCart = cart.map(product => {
+        if (product.id !== productId) return product;
+
+        return {
+          ...product,
+          amount,
+        };
       });
-    } catch (err: any) {
-      console.log(err);
+
+      setCart(updatedCart);
+      localStorage.setItem(CART_TOKEN, JSON.stringify(updatedCart));
+    } catch {
+      toast.error('Erro na alteração de quantidade do produto');
     }
+  };
+
+  const checkStockAvailability = async (productId: number, amount: number) => {
+    const response = await api.get(`/stock/${productId}`);
+    if (response.data.amount < amount) {
+      toast.error('Quantidade solicitada fora de estoque');
+      return false;
+    }
+
+    return true;
   };
 
   return (
